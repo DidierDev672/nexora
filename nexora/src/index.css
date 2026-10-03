@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de color: la fuente de verdad está en src/design-tokens/colors.ts.
+ * Se exponen aquí a Tailwind para generar utilidades como bg-primary, text-neutral, etc.
+ */
+@theme {
+  --color-primary: #5a311f;
+  --color-secondary: #67543e;
+  --color-neutral: #6d6e76;
+  --color-surface: #d4c7b7;
+  --color-danger: #9c3b31;
+
+  --font-sans: 'Poppins', system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * Modo oscuro por clase y atributo data-theme:
+ * Agregar `.dark` o `[data-theme="dark"]` en <html> o <body> activa las utilidades `dark:*`
+ * y reasigna las variables CSS semánticas (--nx-canvas, --nx-panel, etc.).
+ */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --nx-canvas: #f6f1e8;
+  --nx-panel: #fffdf8;
+  --nx-line: #e6dccd;
+  --nx-ink: #2c2118;
+  --nx-ink-muted: #7d6f5d;
+  --nx-ink-soft: #b3a68f;
+  --nx-sidebar: #442817;
+  --nx-sidebar-hover: rgba(255, 253, 248, 0.08);
+  --nx-cream: #f5ecde;
+}
+
+.dark,
+[data-theme='dark'],
+:root[data-theme='dark'],
+body[data-theme='dark'] {
+  color-scheme: dark;
+  --nx-canvas: #16110b;
+  --nx-panel: #211a12;
+  --nx-line: #35291c;
+  --nx-ink: #f0e8da;
+  --nx-ink-muted: #a3927a;
+  --nx-ink-soft: #6f624f;
+  --nx-sidebar: #120c07;
+  --nx-sidebar-hover: rgba(245, 236, 222, 0.08);
+  --nx-cream: #f5ecde;
+}
+
+@theme inline {
+  --color-canvas: var(--nx-canvas);
+  --color-panel: var(--nx-panel);
+  --color-line: var(--nx-line);
+  --color-ink: var(--nx-ink);
+  --color-ink-muted: var(--nx-ink-muted);
+  --color-ink-soft: var(--nx-ink-soft);
+  --color-sidebar: var(--nx-sidebar);
+  --color-sidebar-hover: var(--nx-sidebar-hover);
+  --color-cream: var(--nx-cream);
+}
+
+body {
+  margin: 0;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Fade in (Motion): promueve el wrapper a su propia capa de composición para que
+ * la animación de opacidad se dibuje sin reflow/repaint del resto de la página.
+ * El comportamiento de "prefers-reduced-motion" lo maneja Motion en el componente.
+ */
+[data-fade-in] {
+  will-change: opacity;
+}
