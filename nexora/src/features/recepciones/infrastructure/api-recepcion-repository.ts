@@ -956,11 +956,11 @@ export class ApiRecepcionRepository implements RecepcionRepository {
     return {
       id,
       roomId: payload.room_id,
-      roomLabel: habitacion ? `${habitacion.name} · Hab. ${habitacion.number}` : `Habitación #${payload.room_id.slice(0, 5)}`,
+      roomLabel: habitacion ? `${habitacion.name} · Hab. ${habitacion.number}` : 'Habitación asignada',
       reservaId: payload.reservation_id || undefined,
       reservaLabel: payload.reservation_id ? `Reserva #${payload.reservation_id.slice(0, 6)}` : undefined,
       guestId: payload.person_id,
-      guestLabel: guest ? guest.label : `Huésped #${payload.person_id.slice(0, 6)}`,
+      guestLabel: guest ? guest.label : 'Huésped registrado',
       checkIn: payload.check_in_date,
       checkOut: payload.check_out_date,
       metodoPago: payload.payment_method,

@@ -6,7 +6,12 @@ import { PersonaRegistroForm } from '../molecules/persona-registro-form'
 import { Button } from '../../../recursos/ui/atoms/button'
 import { toPersonaPayload, type Persona, type PersonaInput } from '../../domain/persona'
 
-export function RegistroPersonaPanel() {
+export interface RegistroPersonaPanelProps {
+  onBackToDirectory?: () => void
+  onSuccess?: () => void
+}
+
+export function RegistroPersonaPanel({ onBackToDirectory, onSuccess }: RegistroPersonaPanelProps = {}) {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [successPersona, setSuccessPersona] = useState<Persona | null>(null)
@@ -40,6 +45,7 @@ export function RegistroPersonaPanel() {
         }
 
         setSuccessPersona(nuevaPersona)
+        onSuccess?.()
       } else {
         setSubmitError(
           'No pudimos completar el registro de la persona en este momento. La información que ingresaste sigue intacta en el formulario; por favor verifica los datos o intenta nuevamente.',
@@ -109,9 +115,23 @@ export function RegistroPersonaPanel() {
               </p>
             </div>
 
-            <Button type="button" variant="secondary" onClick={handleReset} className="mt-3">
-              Registrar otra persona
-            </Button>
+            <div className="mt-3 flex items-center gap-3">
+              <Button type="button" variant="secondary" onClick={handleReset}>
+                Registrar otra persona
+              </Button>
+              {onBackToDirectory && (
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    handleReset()
+                    onBackToDirectory()
+                  }}
+                >
+                  Ver en el directorio
+                </Button>
+              )}
+            </div>
           </motion.div>
         ) : (
           <>

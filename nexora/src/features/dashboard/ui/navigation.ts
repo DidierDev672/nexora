@@ -21,17 +21,6 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'home', label: 'Home' },
-  /*{ id: 'sedes', label: 'Sedes' },
-  { id: 'habitacion', label: 'Habitación' },
-  { id: 'tarifas', label: 'Tarifas' },
-  { id: 'cama', label: 'Cama' },
-  { id: 'reservas', label: 'Reservas' },
-  { id: 'recepcion', label: 'Recepción' },*/
-  { id: 'auditoria', label: 'Auditoría' },
-  /*{ id: 'usuarios', label: 'Usuarios' },
-  { id: 'personas', label: 'Personas' },
-  { id: 'recursos', label: 'Asignación de permisos' },
-  { id: 'paletas', label: 'Personalizar' },*/
   { id: 'configuracion', label: 'Configuración' },
 ] as const;
 
@@ -129,3 +118,33 @@ export const PAGE_META: Record<NavId, PageMeta> = {
     soonMessage: '',
   },
 };
+
+/**
+ * Lista exhaustiva de páginas donde el botón "Volver atrás"
+ * retorna obligatoriamente a la página de Configuración ('configuracion'):
+ * 1. Sedes ('sedes')
+ * 2. Habitaciones ('habitacion')
+ * 3. Tarifas ('tarifas')
+ * 4. Camas en 3D ('cama')
+ * 5. Reservas ('reservas')
+ * 6. Recepción ('recepcion')
+ * 7. Auditoría ('auditoria')
+ * 8. Usuarios ('usuarios')
+ * 9. Personas ('personas')
+ * 10. Asignación de permisos ('recursos')
+ * 11. Personalización ('paletas')
+ */
+export const BACK_TO_CONFIG_PAGES: readonly NavId[] = [
+  'sedes',
+  'habitacion',
+  'tarifas',
+  'cama',
+  'reservas',
+  'recepcion',
+  'auditoria',
+  'usuarios',
+  'personas',
+  'recursos',
+  'paletas',
+] as const;
+

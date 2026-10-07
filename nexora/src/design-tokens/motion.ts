@@ -40,3 +40,37 @@ export const buttonEasingVariants: Variants = {
     },
   }),
 }
+
+/**
+ * Variantes de Stagger Reveal (Revelado Escalonado) para contenedores y listas/tablas.
+ * Orquesta secuencialmente a los hijos sin cálculos manuales de retraso.
+ */
+export const staggerContainer: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.045,
+      delayChildren: 0.03,
+    },
+  },
+}
+
+export const staggerItem: Variants = {
+  hidden: {
+    opacity: 0,
+    y: 8,
+    scale: 0.98,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring',
+      damping: 26,
+      stiffness: 300,
+      mass: 0.8,
+    },
+  },
+}

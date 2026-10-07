@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { fadeUp } from '../../../../design-tokens/motion'
 import { formatPrecioCOP } from '../../domain/recepcion'
 import { useHabitacionDetalle } from '../../application/use-habitacion-detalle'
+import { formatRoomDisplayName } from '../../application/use-room-name'
 
 export interface HabitacionDetalleModalProps {
   roomId: string | null
@@ -25,6 +26,15 @@ export function HabitacionDetalleModal({
     const asignada = camas.filter((c) => String(c.id) === String(camaId))
     return asignada.length > 0 ? asignada : (camas.length > 0 ? [camas[0]] : [])
   }, [camas, camaId])
+
+  const cleanRoomTitle = useMemo(() => {
+    if (!habitacion) return ''
+    const base = formatRoomDisplayName(habitacion.name)
+    if (habitacion.number && !base.includes(String(habitacion.number))) {
+      return `${base} · Hab. ${habitacion.number}`
+    }
+    return base
+  }, [habitacion])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -91,7 +101,7 @@ export function HabitacionDetalleModal({
                   Ficha de Habitación
                 </span>
                 <h2 id="habitacion-modal-title" className="mt-2 text-2xl font-bold text-ink">
-                  {habitacion.name} {habitacion.number ? `· Hab. ${habitacion.number}` : ''}
+                  {cleanRoomTitle}
                 </h2>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
                   <span>Piso {habitacion.floor ?? 1}</span>

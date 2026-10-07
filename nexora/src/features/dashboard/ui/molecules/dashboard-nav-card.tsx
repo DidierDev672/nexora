@@ -1,5 +1,6 @@
 import type React from 'react'
-import { motion } from 'motion/react'
+import { motion, type Variants } from 'motion/react'
+import { staggerItem } from '../../../../design-tokens/motion'
 import type { DashboardCardDefinition } from '../../domain/dashboard-card'
 import type { NavId } from '../navigation'
 import {
@@ -34,18 +35,17 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 export interface DashboardNavCardProps {
   card: DashboardCardDefinition
   onNavigate: (id: NavId) => void
+  variants?: Variants
 }
 
-export function DashboardNavCard({ card, onNavigate }: DashboardNavCardProps) {
+export function DashboardNavCard({ card, onNavigate, variants = staggerItem }: DashboardNavCardProps) {
   const IconComponent = ICON_MAP[card.iconName] ?? BuildingIcon
 
   return (
     <motion.button
       type="button"
       onClick={() => onNavigate(card.id)}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
+      variants={variants}
       whileHover={{ y: -4, scale: 1.015, transition: { type: 'spring', stiffness: 400, damping: 26 } }}
       whileTap={{ scale: 0.985, transition: { type: 'spring', stiffness: 400, damping: 26 } }}
       aria-label={`Ir a la sección de ${card.title}: ${card.subtitle}`}

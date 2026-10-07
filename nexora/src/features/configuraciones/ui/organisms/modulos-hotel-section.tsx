@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react'
+import { staggerContainer } from '../../../../design-tokens/motion'
 import type { NavId } from '../../../dashboard/ui/navigation'
 import type { DashboardCardDefinition } from '../../../dashboard/domain/dashboard-card'
 import { DashboardNavCard } from '../../../dashboard/ui/molecules/dashboard-nav-card'
@@ -67,15 +68,10 @@ export function ModulosHotelSection({
         {modulos.length > 0 ? (
           <motion.div
             key={`grid-${categoriaActiva}-${busqueda}`}
+            variants={staggerContainer}
             initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: { opacity: 0 },
-              visible: {
-                opacity: 1,
-                transition: { staggerChildren: 0.04, delayChildren: 0.05 },
-              },
-            }}
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.05 }}
             className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 sm:gap-5 lg:gap-6"
           >
             {modulos.map((card) => (

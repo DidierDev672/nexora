@@ -15,9 +15,19 @@ export interface HeaderProps {
   onOpenSidebar: () => void
   onNavigate?: (id: NavId) => void
   onLogout?: () => void
+  canGoBack?: boolean
+  onBack?: () => void
 }
 
-export function Header({ title, subtitle, onOpenSidebar, onNavigate, onLogout }: HeaderProps) {
+export function Header({
+  title,
+  subtitle,
+  onOpenSidebar,
+  onNavigate,
+  onLogout,
+  canGoBack,
+  onBack,
+}: HeaderProps) {
   const [query, setQuery] = useState('')
 
   return (
@@ -32,6 +42,32 @@ export function Header({ title, subtitle, onOpenSidebar, onNavigate, onLogout }:
         >
           <MenuIcon className="size-5" />
         </motion.button>
+
+        {canGoBack && onBack && (
+          <motion.button
+            type="button"
+            whileHover={{ x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            aria-label="Volver atrás a Configuración"
+            title="Volver atrás a Configuración"
+            className="group flex items-center gap-2 rounded-xl border border-line bg-panel px-3 py-1.5 text-xs font-bold text-primary shadow-2xs hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer shrink-0"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-3.5 text-primary transition-transform group-hover:-translate-x-0.5"
+              aria-hidden="true"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            <span className="hidden sm:inline">Volver atrás</span>
+          </motion.button>
+        )}
 
         <motion.div
           variants={slideIn}

@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import { staggerContainer } from '../../../../design-tokens/motion'
 import { DASHBOARD_CARDS } from '../../domain/dashboard-card'
 import type { NavId } from '../navigation'
 import { DashboardNavCard } from '../molecules/dashboard-nav-card'
@@ -32,15 +33,10 @@ export function DashboardCardGrid({ onNavigate, className = '' }: DashboardCardG
       </div>
 
       <motion.div
+        variants={staggerContainer}
         initial="hidden"
-        animate="visible"
-        variants={{
-          hidden: { opacity: 0 },
-          visible: {
-            opacity: 1,
-            transition: { staggerChildren: 0.04, delayChildren: 0.05 },
-          },
-        }}
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.05 }}
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 sm:gap-5 lg:gap-6"
       >
         {DASHBOARD_CARDS.map((card) => (
