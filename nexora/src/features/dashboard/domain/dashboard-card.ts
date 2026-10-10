@@ -134,4 +134,15 @@ export const DASHBOARD_CARDS: readonly DashboardCardDefinition[] = [
     accentColor: 'from-emerald-500/10 to-cyan-500/10 text-primary',
     highlightMetric: 'Atmósfera Nexora',
   },
+  {
+    id: 'servicios',
+    title: 'Room Service',
+    subtitle: 'Servicio a la habitación',
+    description: 'Registro de pedidos de gastronomía y amenidades con cargo directo a la estancia.',
+    badgeText: 'Cocina & Bar',
+    badgeVariant: 'accent',
+    iconName: 'UtensilsIcon',
+    accentColor: 'from-amber-600/10 to-orange-600/10 text-[#5a311f] dark:text-amber-400',
+    highlightMetric: 'Órdenes y delivery',
+  },
 ] as const

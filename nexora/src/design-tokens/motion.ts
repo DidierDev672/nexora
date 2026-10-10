@@ -74,3 +74,36 @@ export const staggerItem: Variants = {
     },
   },
 }
+
+/**
+ * Variante Spring con micro-rebote sutil para píldoras y badges.
+ * stiffness: 260 (aceleración inicial rápida y enérgica)
+ * damping: 20 (amortiguación que sobrepasa levemente y retorna suave)
+ */
+export const springPill: Variants = {
+  hidden: {
+    opacity: 0,
+    scale: 0.85,
+    y: 8,
+  },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 260,
+      damping: 20,
+      mass: 0.8,
+    },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.88,
+    y: 4,
+    transition: {
+      duration: 0.16,
+      ease: 'easeOut',
+    },
+  },
+}

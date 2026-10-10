@@ -12,7 +12,8 @@ export type NavId =
   | 'paletas'
   | 'recursos'
   | 'configuracion'
-  | 'perfil';
+  | 'perfil'
+  | 'servicios';
 
 export interface NavItem {
   id: NavId;
@@ -117,6 +118,12 @@ export const PAGE_META: Record<NavId, PageMeta> = {
       'Consulta y gestiona tu información personal, rol y datos de contacto.',
     soonMessage: '',
   },
+  servicios: {
+    title: 'Servicio a la Habitación',
+    subtitle:
+      'Registra y gestiona pedidos gastronómicos y comodidades con entrega directa a cada habitación.',
+    soonMessage: '',
+  },
 };
 
 /**
@@ -146,5 +153,6 @@ export const BACK_TO_CONFIG_PAGES: readonly NavId[] = [
   'personas',
   'recursos',
   'paletas',
+  'servicios',
 ] as const;
 

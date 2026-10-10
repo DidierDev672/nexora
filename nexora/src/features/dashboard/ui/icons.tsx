@@ -316,6 +316,16 @@ function ClipboardCheckIcon({ className }: IconProps) {
   )
 }
 
+function UtensilsIcon({ className }: IconProps) {
+  return (
+    <BaseSvg className={className}>
+      <path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2" />
+      <path d="M15 2v18" />
+      <path d="M7 2h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7v7" />
+    </BaseSvg>
+  )
+}
+
 export {
   TagIcon,
   AlertTriangleIcon,
@@ -348,4 +358,5 @@ export {
   TrendingUpIcon,
   UserIcon,
   UsersIcon,
+  UtensilsIcon,
 }
