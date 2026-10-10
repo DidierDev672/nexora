@@ -382,5 +382,5 @@ func NewRouter(roleRepo domain.RoleRepository, headquarterRepo domain.Headquarte
 	itemMenuHTTP.Register(mux)
 	serviceRequestHTTP.Register(mux)
 
-	return corsMiddleware(mux)
+	return corsMiddleware(rateLimitMiddleware(mux))
 }

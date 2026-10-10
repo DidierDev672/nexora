@@ -429,3 +429,73 @@ export function clearAuthSession(): void {
     // Si localStorage no estuviera accesible
   }
 }
+
+/**
+ * Obtiene el token JWT sin procesar almacenado en localStorage.
+ * Busca secuencialmente en las claves estándar ('auth_token', 'nexora.auth.token', 'token', 'access_token', 'jwt')
+ * y extrae la cadena JWT tanto si está almacenada en texto plano como si está serializada en un objeto JSON.
+ */
+export function getRawJwtToken(): string | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null
+
+    const candidateKeys = ['auth_token', 'nexora.auth.token', 'token', 'access_token', 'jwt']
+
+    for (const key of candidateKeys) {
+      const raw = window.localStorage.getItem(key)
+      if (!raw) continue
+
+      const trimmed = raw.trim()
+      if (!trimmed) continue
+
+      // Caso 1: Cadena plana (JWT o token)
+      if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+        const clean = trimmed.replace(/^["']|["']$/g, '').trim()
+        if (clean) return clean
+      }
+
+      // Caso 2: Objeto JSON serializado
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        if (parsed && typeof parsed === 'object') {
+          const record = parsed as Record<string, unknown>
+          const candidate =
+            record.token ||
+            record.access_token ||
+            record.jwt ||
+            (record.data && typeof record.data === 'object'
+              ? (record.data as Record<string, unknown>).token ||
+                (record.data as Record<string, unknown>).access_token
+              : null)
+
+          if (typeof candidate === 'string' && candidate.trim()) {
+            return candidate.trim().replace(/^["']|["']$/g, '')
+          }
+        }
+      } catch {
+        const clean = trimmed.replace(/^["']|["']$/g, '').trim()
+        if (clean) return clean
+      }
+    }
+  } catch {
+    // localStorage no accesible
+  }
+
+  return null
+}
+
+/**
+ * Genera los encabezados HTTP de autorización con el token JWT obtenido desde localStorage.
+ * Incluye Authorization Bearer y cabeceras compatibles ('auth-token', 'x-access-token', 'token').
+ */
+export function getAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+  const token = getRawJwtToken()
+  const headers: Record<string, string> = { ...(extra || {}) }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+    headers['auth-token'] = token
+    headers['x-access-token'] = token
+    headers['token'] = token
+  }
+  return headers
+}

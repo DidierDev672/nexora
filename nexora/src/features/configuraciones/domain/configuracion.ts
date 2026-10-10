@@ -31,6 +31,7 @@ export const MODULO_A_CATEGORIA: Record<NavId, ModuloCategoria> = {
   paletas: 'visual',
   configuracion: 'seguridad',
   perfil: 'seguridad',
+  servicios: 'operaciones',
 }
 
 export interface PreferenciasHotel {

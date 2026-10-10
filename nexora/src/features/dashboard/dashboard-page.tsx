@@ -16,6 +16,7 @@ import { TarifasPage } from '../../features/tarifas/ui/tarifas-page'
 import { ConfiguracionesPage } from '../../features/configuraciones/ui/configuraciones-page'
 import { AuditoriaPage } from '../../features/auditoria/ui/auditoria-page'
 import UserProfile from '../../features/usuarios/ui/UserProfile'
+import { ServicioHabitacionesPage } from '../../features/servicio-habitaciones/ui/views/ServicioHabitacionesPage'
 import { SectionSoon } from './ui/molecules/section-soon'
 
 export interface DashboardPageProps {
@@ -113,6 +114,8 @@ export function DashboardPage({ onLogout }: DashboardPageProps = {}) {
             <RecursosPage />
           ) : activeId === 'paletas' ? (
             <PaletteView />
+          ) : activeId === 'servicios' ? (
+            <ServicioHabitacionesPage />
           ) : activeId === 'configuracion' ? (
             <ConfiguracionesPage onNavigate={navigate} />
           ) : (

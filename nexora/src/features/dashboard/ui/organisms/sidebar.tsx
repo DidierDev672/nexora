@@ -1,7 +1,7 @@
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
 import { useEffect, type ReactNode } from 'react'
 import { NAV_ITEMS, type NavId } from '../navigation'
-import { BedIcon, BuildingIcon, CalendarIcon, ClipboardCheckIcon, ConciergeBellIcon, CubeIcon, HomeIcon, PaletteIcon, SettingsIcon, ShieldIcon, SparklesIcon, TagIcon, UserIcon, UsersIcon } from '../icons'
+import { BedIcon, BuildingIcon, CalendarIcon, ClipboardCheckIcon, ConciergeBellIcon, CubeIcon, HomeIcon, PaletteIcon, SettingsIcon, ShieldIcon, SparklesIcon, TagIcon, UserIcon, UsersIcon, UtensilsIcon } from '../icons'
 import { SidebarNavItem } from '../molecules/sidebar-nav-item'
 
 const NAV_ICONS: Record<NavId, ReactNode> = {
@@ -19,6 +19,7 @@ const NAV_ICONS: Record<NavId, ReactNode> = {
   paletas: <PaletteIcon className="size-[18px]" />,
   configuracion: <SettingsIcon className="size-[18px]" />,
   perfil: <UserIcon className="size-[18px]" />,
+  servicios: <UtensilsIcon className="size-[18px]" />,
 }
 
 function SidebarBody({

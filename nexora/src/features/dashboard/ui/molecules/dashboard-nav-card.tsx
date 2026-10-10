@@ -16,6 +16,7 @@ import {
   PaletteIcon,
   ClipboardCheckIcon,
   ChevronRightIcon,
+  UtensilsIcon,
 } from '../icons'
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -30,6 +31,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   UsersIcon,
   ShieldIcon,
   PaletteIcon,
+  UtensilsIcon,
 }
 
 export interface DashboardNavCardProps {
