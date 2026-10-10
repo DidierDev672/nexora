@@ -133,3 +133,30 @@ func TestHandler_HTTPFlow(t *testing.T) {
 		t.Fatalf("expected status 404 Not Found after delete, got %d", wGetAfterDel.Code)
 	}
 }
+
+func TestHandler_InvalidBody_FloatOrder(t *testing.T) {
+	mux, _ := setupTestMux()
+
+	body := []byte(`{
+		"headquartes_id": "hq-abc",
+		"name": "Desayunos",
+		"order": 138.947
+	}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/menu-category", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d. Body: %s", w.Code, w.Body.String())
+	}
+
+	var res map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+		t.Fatalf("failed to parse error response: %v", err)
+	}
+	if errMsg, ok := res["error"]; !ok || errMsg == "" {
+		t.Fatalf("expected non-empty error field in response")
+	}
+}
