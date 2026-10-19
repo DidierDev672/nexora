@@ -9,7 +9,7 @@ import {
   validateStatusCode,
   type StatusCodeValidationResult,
 } from '../../../../shared/lib/status-code-validator'
-import { readAuthTokenEmail } from '../../../../shared/auth-storage'
+import { readAuthTokenEmail, getRawJwtToken } from '../../../../shared/auth-storage'
 import { Loader } from '../../../tema/ui/atoms/loader'
 import { CampanaHotelAnimada } from '../atoms/CampanaHotelAnimada'
 import { SeccionCargaImagen } from '../molecules/SeccionCargaImagen'
@@ -392,10 +392,17 @@ export function FormularioServicioHabitacionCard() {
     }
 
     try {
-      // Envío con Axios POST a /menu-category sin token de autenticación (skipAuth)
+      const authToken = getRawJwtToken()
+      const headers: Record<string, string> = {}
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`
+        headers['auth-token'] = authToken
+      }
+
+      // Envío con Axios POST a /menu-category enviando el token de autenticación
       const [response] = await Promise.all([
         api.post('/menu-category', payload, {
-          skipAuth: true,
+          headers,
           validateStatus: () => true,
         }),
         new Promise((resolve) => setTimeout(resolve, 600)),

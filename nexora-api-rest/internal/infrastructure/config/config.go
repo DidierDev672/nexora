@@ -47,12 +47,16 @@ func CORSAllowedOrigins() []string {
 }
 
 func DatabaseURL() string {
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = os.Getenv("DB_SCHEMA")
+	}
 	db := Database{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
 		User:     os.Getenv("DB_USER"),
 		Password: os.Getenv("DB_PASSWORD"),
-		Name:     os.Getenv("DB_NAME"),
+		Name:     dbName,
 		SSLMode:  os.Getenv("DB_SSLMODE"),
 		Timezone: os.Getenv("DB_TIMEZONE"),
 	}

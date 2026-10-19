@@ -1,24 +1,38 @@
-import { useEffect, useState, type ChangeEvent, type Dispatch, type FormEvent, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import { motion } from 'motion/react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPenToSquare } from '@fortawesome/free-solid-svg-icons'
 import { fadeUp } from '../../../../design-tokens/motion'
+import { api } from '../../../../lib/api'
+import { validateStatusCode } from '../../../../shared/lib/status-code-validator'
 import { Input } from '../../../../shared/ui/Input'
+import { RecursosDropdown, type DropdownOption } from '../../../recursos/ui/molecules/recursos-dropdown'
 import {
   HABITACION_ESTADOS,
   HABITACION_ESTADO_LABELS,
   NUMERO_MAX,
-  PISO_MIN,
   validateHabitacionDetalleInput,
   type HabitacionDetalleInput,
   type HabitacionDetalleValidationErrors,
   type HabitacionEstado,
 } from '../../domain/habitacion-detalle'
+import type { HabitacionDetalleRepository } from '../../domain/habitacion-detalle-repository'
+import { ApiHabitacionDetalleRepository } from '../../infrastructure/api-habitacion-detalle-repository'
+import { ObtenerSiguienteNumeroHabitacion } from '../../application/obtener-siguiente-numero-habitacion'
 import { Button } from '../atoms/button'
 import { FadeIn } from '../atoms/fade-in'
 import { SelectField } from '../atoms/select-field'
+import { cn } from '../lib/cn'
 
 export interface Option {
   value: string
   label: string
+}
+
+export interface EdificioOption {
+  value: string
+  label: string
+  floorNumber?: number
 }
 
 export interface TarifaOption {
@@ -31,12 +45,13 @@ export interface TarifaOption {
 export interface HabitacionDetalleFormProps {
   roomTypes: ReadonlyArray<Option>
   roomTypesLoading: boolean
-  edificios: ReadonlyArray<Option>
+  edificios: ReadonlyArray<EdificioOption>
   edificiosLoading: boolean
   submitting: boolean
   submitError: string | null
   onSubmit: (values: HabitacionDetalleInput) => void
   selectedTarifa?: TarifaOption | null
+  repository?: HabitacionDetalleRepository
 }
 
 function formatCurrency(amount: number): string {
@@ -60,6 +75,8 @@ const ANIMATION = {
   start: 0,
 } as const
 
+const defaultHabitacionDetalleRepository = new ApiHabitacionDetalleRepository()
+
 export function HabitacionDetalleForm({
   roomTypes,
   roomTypesLoading,
@@ -69,14 +86,163 @@ export function HabitacionDetalleForm({
   submitError,
   onSubmit,
   selectedTarifa,
+  repository,
 }: HabitacionDetalleFormProps) {
   const [numero, setNumero] = useState('')
+  const [autoNextNumber, setAutoNextNumber] = useState('')
+  const [isManualNumber, setIsManualNumber] = useState(false)
+  const [loadingNextNumber, setLoadingNextNumber] = useState(false)
+  const [nextNumberError, setNextNumberError] = useState<string | null>(null)
   const [piso, setPiso] = useState('')
   const [tipoHabitacion, setTipoHabitacion] = useState('')
   const [edificioId, setEdificioId] = useState('')
   const [precio, setPrecio] = useState('')
   const [estado, setEstado] = useState<HabitacionEstado>('disponible')
   const [errors, setErrors] = useState<HabitacionDetalleValidationErrors>({})
+  const [fetchedFloors, setFetchedFloors] = useState<Record<string, number>>({})
+  const [loadingFloors, setLoadingFloors] = useState(false)
+
+  const effectiveRepository = useMemo(
+    () => repository ?? defaultHabitacionDetalleRepository,
+    [repository]
+  )
+
+  const fetchNextNumber = useCallback(async () => {
+    setLoadingNextNumber(true)
+    setNextNumberError(null)
+
+    try {
+      const getNext = ObtenerSiguienteNumeroHabitacion(effectiveRepository)
+      const result = await getNext()
+
+      if (!result.validation.isValid) {
+        const errorMsg =
+          result.validation.message ??
+          `No se pudo obtener el número automático (código ${result.validation.status}).`
+        setNextNumberError(errorMsg)
+        setIsManualNumber(true)
+        return
+      }
+
+      if (result.nextNumber) {
+        setAutoNextNumber(result.nextNumber)
+        setNumero(result.nextNumber)
+        setErrors((prev) => {
+          if (!prev.numero) return prev
+          const next = { ...prev }
+          delete next.numero
+          return next
+        })
+      }
+    } catch {
+      const validation = validateStatusCode(0)
+      setNextNumberError(validation.message ?? 'No se pudo consultar el próximo número.')
+      setIsManualNumber(true)
+    } finally {
+      setLoadingNextNumber(false)
+    }
+  }, [effectiveRepository])
+
+  useEffect(() => {
+    void fetchNextNumber()
+  }, [fetchNextNumber])
+
+  const handleToggleManualNumber = () => {
+    setIsManualNumber((prev) => {
+      const next = !prev
+      if (next) {
+        setTimeout(() => {
+          const el = document.getElementById('habitacion-numero-input') as HTMLInputElement | null
+          if (el) {
+            el.focus()
+            el.select()
+          }
+        }, 50)
+      } else {
+        if (autoNextNumber) {
+          setNumero(autoNextNumber)
+          setErrors((prev) => {
+            if (!prev.numero) return prev
+            const n = { ...prev }
+            delete n.numero
+            return n
+          })
+        } else {
+          void fetchNextNumber()
+        }
+      }
+      return next
+    })
+  }
+
+  const selectedEdificio = useMemo(
+    () => edificios.find((e) => e.value === edificioId),
+    [edificios, edificioId]
+  )
+
+  // Consulta complementaria a /building/{id} si el listado general no aportó floorNumber
+  useEffect(() => {
+    if (!edificioId) return
+    if (selectedEdificio?.floorNumber != null && selectedEdificio.floorNumber > 0) return
+    if (fetchedFloors[edificioId] != null) return
+
+    let isMounted = true
+    setLoadingFloors(true)
+
+    api
+      .get<unknown>(`/building/${encodeURIComponent(edificioId)}`)
+      .then((res) => {
+        if (!isMounted) return
+        const raw = res.data as { data?: { floor_number?: number } } | { floor_number?: number }
+        const item = raw && typeof raw === 'object' && 'data' in raw && raw.data ? raw.data : raw
+        const fNum =
+          item &&
+          typeof item === 'object' &&
+          'floor_number' in item &&
+          typeof item.floor_number === 'number'
+            ? item.floor_number
+            : undefined
+        if (fNum != null && fNum > 0) {
+          setFetchedFloors((prev) => ({ ...prev, [edificioId]: fNum }))
+        }
+      })
+      .catch(() => {
+        // Fallback silencioso
+      })
+      .finally(() => {
+        if (isMounted) setLoadingFloors(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [edificioId, selectedEdificio, fetchedFloors])
+
+  const totalPisos = selectedEdificio?.floorNumber ?? fetchedFloors[edificioId] ?? 0
+
+  // Opciones de pisos derivadas del número de pisos registrado para el edificio
+  const pisoOptions = useMemo<DropdownOption[]>(() => {
+    if (!edificioId || totalPisos <= 0) return []
+    return Array.from({ length: totalPisos }, (_, index) => {
+      const floorNumber = index + 1
+      return {
+        value: String(floorNumber),
+        label: `Piso ${floorNumber}`,
+      }
+    })
+  }, [edificioId, totalPisos])
+
+  // Limpia el piso seleccionado si ya no es válido para el edificio actual
+  useEffect(() => {
+    if (piso && totalPisos > 0) {
+      const currentPiso = Number(piso)
+      if (isNaN(currentPiso) || currentPiso < 1 || currentPiso > totalPisos) {
+        setPiso('')
+      }
+    } else if (!edificioId) {
+      setPiso('')
+    }
+  }, [edificioId, totalPisos, piso])
 
   const numericPrecio = precio.trim() ? Number(precio.trim().replace(',', '.')) : 0
   const hasValidNumericPrecio = !isNaN(numericPrecio) && numericPrecio > 0
@@ -99,6 +265,19 @@ export function HabitacionDetalleForm({
   ) => {
     setter(value)
     clearError(field)
+  }
+
+  const handleEdificioChange = (newEdificioId: string) => {
+    setEdificioId(newEdificioId)
+    clearError('edificioId')
+    clearError('piso')
+    const matched = edificios.find((e) => e.value === newEdificioId)
+    const availableFloors = matched?.floorNumber ?? fetchedFloors[newEdificioId] ?? 0
+    if (piso && availableFloors > 0 && Number(piso) > availableFloors) {
+      setPiso('')
+    } else if (!newEdificioId) {
+      setPiso('')
+    }
   }
 
   const handlePrecioChange = (val: string) => {
@@ -145,7 +324,11 @@ export function HabitacionDetalleForm({
       precio,
       estado,
     }
-    const nextErrors = validateHabitacionDetalleInput(values, selectedTarifa?.price)
+    const nextErrors = validateHabitacionDetalleInput(
+      values,
+      selectedTarifa?.price,
+      totalPisos > 0 ? totalPisos : null
+    )
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length === 0) {
       onSubmit(values)
@@ -156,41 +339,103 @@ export function HabitacionDetalleForm({
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
         <FadeIn duration={ANIMATION.duration} delay={ANIMATION.start}>
-          <Input
-            label="Número"
-            placeholder="Ej. 101A"
-            autoComplete="off"
-            maxLength={NUMERO_MAX}
-            autoFocus
-            required
-            value={numero}
-            onChange={(event) => handleInputChange('numero', setNumero, event.target.value)}
-            error={errors.numero}
-            hint="El número que la identifica dentro del hotel."
-            icon={<NumberIcon />}
-          />
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <Input
+                id="habitacion-numero-input"
+                label="Número"
+                placeholder={loadingNextNumber ? 'Consultando número…' : 'Ej. 101-1'}
+                autoComplete="off"
+                maxLength={NUMERO_MAX}
+                autoFocus={isManualNumber}
+                required
+                isDisabled={!isManualNumber}
+                disabled={!isManualNumber}
+                value={numero}
+                onChange={(event) => handleInputChange('numero', setNumero, event.target.value)}
+                error={errors.numero}
+                hint={
+                  nextNumberError
+                    ? nextNumberError
+                    : isManualNumber
+                    ? 'Modo manual activo: ingresa el número que prefieras.'
+                    : 'Número sugerido automáticamente por el sistema. Usa el botón de editar manual para cambiarlo.'
+                }
+                icon={<NumberIcon />}
+              />
+            </div>
+
+            <div className="pt-[26px]">
+              <button
+                type="button"
+                onClick={handleToggleManualNumber}
+                disabled={loadingNextNumber}
+                title="Numero manual"
+                aria-label="Numero manual"
+                className={cn(
+                  'flex size-[42px] shrink-0 items-center justify-center rounded-xl border text-sm transition-all cursor-pointer shadow-2xs',
+                  isManualNumber
+                    ? 'border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 active:scale-95'
+                    : 'border-line bg-panel text-ink-muted hover:border-ink-soft hover:text-ink hover:scale-105 active:scale-95',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              >
+                <FontAwesomeIcon icon={faPenToSquare} className="size-4" />
+              </button>
+            </div>
+          </div>
         </FadeIn>
 
         <FadeIn duration={ANIMATION.duration} delay={ANIMATION.step}>
-          <Input
-            label="Piso"
-            type="number"
-            inputMode="numeric"
-            min={PISO_MIN}
-            step={1}
-            placeholder="Ej. 2"
+          <SelectField
+            label="Edificio"
+            placeholder={edificiosLoading ? 'Cargando edificios…' : 'Elige un edificio…'}
+            options={edificios}
+            value={edificioId}
+            onChange={(event) => handleEdificioChange(event.target.value)}
+            error={errors.edificioId}
             required
-            value={piso}
-            onChange={(event) => handleInputChange('piso', setPiso, event.target.value)}
-            error={errors.piso}
-            hint="Planta del edificio donde se encuentra."
-            icon={<FloorIcon />}
+            disabled={edificiosLoading}
+            emptyLabel="Aún no hay edificios registrados."
           />
         </FadeIn>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <FadeIn duration={ANIMATION.duration} delay={0.14}>
+          <div className="space-y-1">
+            <RecursosDropdown
+              label="Piso"
+              placeholder={
+                !edificioId
+                  ? 'Primero elige un edificio…'
+                  : loadingFloors
+                    ? 'Consultando pisos…'
+                    : 'Elige un piso…'
+              }
+              options={pisoOptions}
+              value={piso}
+              onChange={(val) => handleInputChange('piso', setPiso, val)}
+              error={errors.piso}
+              disabled={!edificioId || loadingFloors}
+              required
+              emptyLabel={
+                !edificioId
+                  ? 'Primero elige un edificio para ver sus pisos disponibles.'
+                  : loadingFloors
+                    ? 'Consultando pisos del edificio…'
+                    : 'Este edificio no tiene pisos registrados.'
+              }
+            />
+            {selectedEdificio && totalPisos > 0 && (
+              <p className="text-[11px] text-ink-muted">
+                {selectedEdificio.label}: {totalPisos} {totalPisos === 1 ? 'piso disponible' : 'pisos disponibles'}.
+              </p>
+            )}
+          </div>
+        </FadeIn>
+
+        <FadeIn duration={ANIMATION.duration} delay={0.21}>
           <SelectField
             label="Tipo de habitación"
             placeholder={roomTypesLoading ? 'Cargando tipos…' : 'Elige un tipo…'}
@@ -205,8 +450,10 @@ export function HabitacionDetalleForm({
             emptyLabel="Aún no hay tipos de habitación registrados."
           />
         </FadeIn>
+      </div>
 
-        <FadeIn duration={ANIMATION.duration} delay={0.21}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FadeIn duration={ANIMATION.duration} delay={0.28}>
           <SelectField
             label="Estado"
             options={estadoOptions}
@@ -214,22 +461,6 @@ export function HabitacionDetalleForm({
             onChange={handleEstadoChange}
             error={errors.estado}
             required
-          />
-        </FadeIn>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FadeIn duration={ANIMATION.duration} delay={0.28}>
-          <SelectField
-            label="Edificio"
-            placeholder={edificiosLoading ? 'Cargando edificios…' : 'Elige un edificio…'}
-            options={edificios}
-            value={edificioId}
-            onChange={(event) => handleInputChange('edificioId', setEdificioId, event.target.value)}
-            error={errors.edificioId}
-            required
-            disabled={edificiosLoading}
-            emptyLabel="Aún no hay edificios registrados."
           />
         </FadeIn>
 
@@ -383,25 +614,6 @@ function NumberIcon() {
       <path d="M4 15h16" />
       <path d="M10 3 8 21" />
       <path d="M16 3l-2 18" />
-    </svg>
-  )
-}
-
-function FloorIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-4"
-      aria-hidden="true"
-    >
-      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
-      <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
-      <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
     </svg>
   )
 }

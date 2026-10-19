@@ -9,11 +9,12 @@ import (
 
 // Handler composes the narrow use-case ports expected by the HTTP layer.
 type Handler struct {
-	Creator roomapp.RoomCreator
-	Lister  roomapp.RoomLister
-	Getter  roomapp.RoomGetter
-	Updater roomapp.RoomUpdater
-	Deleter roomapp.RoomDeleter
+	Creator          roomapp.RoomCreator
+	Lister           roomapp.RoomLister
+	Getter           roomapp.RoomGetter
+	Updater          roomapp.RoomUpdater
+	Deleter          roomapp.RoomDeleter
+	NextNumberGetter roomapp.RoomNextNumberGetter
 }
 
 // roomResponse is the HTTP projection of the domain entity. The optional

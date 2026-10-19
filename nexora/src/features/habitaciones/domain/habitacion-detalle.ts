@@ -83,6 +83,7 @@ function parseMoney(value: string): number {
 export function validateHabitacionDetalleInput(
   input: HabitacionDetalleInput,
   tarifaPrecioMax?: number | null,
+  edificioMaxPisos?: number | null,
 ): HabitacionDetalleValidationErrors {
   const errors: HabitacionDetalleValidationErrors = {}
   const numero = input.numero.trim()
@@ -103,6 +104,8 @@ export function validateHabitacionDetalleInput(
     const value = Number(piso)
     if (value < PISO_MIN || value > PISO_MAX) {
       errors.piso = `El piso debe estar entre ${PISO_MIN} y ${PISO_MAX}.`
+    } else if (edificioMaxPisos != null && edificioMaxPisos > 0 && value > edificioMaxPisos) {
+      errors.piso = `El piso no puede superar el límite de ${edificioMaxPisos} ${edificioMaxPisos === 1 ? 'piso' : 'pisos'} del edificio seleccionado.`
     }
   }
 

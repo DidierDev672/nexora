@@ -1,11 +1,13 @@
 import { isAxiosError } from 'axios'
 import { api } from '../../../lib/api'
+import { validateStatusCode } from '../../../shared/lib/status-code-validator'
 import { HabitacionApiError } from '../domain/habitacion-error'
 import type { HabitacionDetalleInput } from '../domain/habitacion-detalle'
 import { HABITACION_ESTADO_STATUS } from '../domain/habitacion-detalle'
 import type {
   HabitacionDetalleRepository,
   HabitacionRegistroResult,
+  NextRoomNumberResult,
 } from '../domain/habitacion-detalle-repository'
 import { readAuthTokenEmail, readAuthUserEmail } from '../../../shared/auth-storage'
 
@@ -66,25 +68,75 @@ export class ApiHabitacionDetalleRepository implements HabitacionDetalleReposito
         created_by: createdBy,
       }
 
-      const response = await api.post('/room', payload)
+      const response = await api.post('/room', payload, {
+        validateStatus: () => true,
+      })
 
-      if (response.status !== 201) {
-        throw new HabitacionApiError(response.status)
+      const validation = validateStatusCode(response.status)
+      if (!validation.isValid) {
+        throw new HabitacionApiError(
+          response.status,
+          validation.message ?? `No se pudo registrar la habitación (código ${response.status})`
+        )
       }
 
       const roomId = extractRoomId(response.data)
       return {
         roomId: roomId ?? undefined,
         data: response.data,
+        validation,
       }
     } catch (error) {
       if (error instanceof HabitacionApiError) {
         throw error
       }
       if (isAxiosError(error)) {
-        throw new HabitacionApiError(error.response?.status ?? 0)
+        const status = error.response?.status ?? 0
+        const validation = validateStatusCode(status)
+        throw new HabitacionApiError(status, validation.message ?? undefined)
       }
-      throw new HabitacionApiError(0)
+      const validation = validateStatusCode(0)
+      throw new HabitacionApiError(0, validation.message ?? undefined)
+    }
+  }
+
+  async getNextNumber(): Promise<NextRoomNumberResult> {
+    try {
+      const response = await api.get('/room/next-number', {
+        validateStatus: () => true,
+      })
+
+      const validation = validateStatusCode(response.status)
+      if (!validation.isValid) {
+        return {
+          nextNumber: null,
+          validation,
+          data: response.data,
+        }
+      }
+
+      const raw = response.data as
+        | { next_number?: unknown; data?: { next_number?: unknown } }
+        | undefined
+      const candidate =
+        (typeof raw?.next_number === 'string' && raw.next_number) ||
+        (typeof raw?.data?.next_number === 'string' && raw.data.next_number) ||
+        (typeof raw?.next_number === 'number' && String(raw.next_number)) ||
+        (typeof raw?.data?.next_number === 'number' && String(raw.data.next_number)) ||
+        null
+
+      return {
+        nextNumber: candidate ? candidate.trim() : null,
+        validation,
+        data: response.data,
+      }
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status ?? 0 : 0
+      const validation = validateStatusCode(status)
+      return {
+        nextNumber: null,
+        validation,
+      }
     }
   }
 }
