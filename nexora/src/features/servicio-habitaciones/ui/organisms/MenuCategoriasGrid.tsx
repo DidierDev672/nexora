@@ -75,9 +75,6 @@ export function MenuCategoriasGrid({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {/* Campo de Búsqueda reactivo */}
           <div className="relative max-w-md flex-1">
-            <span className="text-ink-muted pointer-events-none absolute inset-y-0 left-3.5 flex items-center">
-              🔍
-            </span>
             <input
               type="text"
               value={searchTerm}

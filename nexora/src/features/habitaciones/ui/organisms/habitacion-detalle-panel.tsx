@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -23,7 +23,6 @@ import { ApiRoomTariffRepository } from '../../infrastructure/api-room-tariff-re
 import { Button } from '../atoms/button';
 import { Loader } from '../atoms/loader';
 import { roomTypeErrorCopy } from '../lib/error-copy';
-import { cn } from '../lib/cn';
 import {
   HabitacionDetalleForm,
   type Option,
@@ -33,6 +32,7 @@ import {
 import { TarifaFeedbackBanner } from '../molecules/tarifa-feedback-banner';
 import { EdificioRegistroModal } from '../../../edificios/ui/organisms/edificio-registro-modal';
 import { HabitacionTipoModal } from './habitacion-tipo-modal';
+import { RecursosDropdown, type DropdownOption } from '../../../recursos/ui/molecules/recursos-dropdown';
 
 const habitacionDetalleRepository = new ApiHabitacionDetalleRepository();
 const roomTariffRepository = new ApiRoomTariffRepository();
@@ -307,6 +307,206 @@ export function HabitacionDetallePanel() {
     setTarifaFeedback(null);
   };
 
+  const buttonHoverTap = {
+    whileHover: {
+      scale: 1.04,
+      y: -2,
+      transition: { duration: 0.22, ease: customEasing },
+    },
+    whileTap: {
+      scale: 0.96,
+      y: 0,
+      transition: { duration: 0.12, ease: customEasing },
+    },
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*  2. Subcomponentes pequeños (mismo archivo, o muévelos a /components) */
+  /* ------------------------------------------------------------------ */
+
+  type ModalActionButtonProps = {
+    index: number;
+    onClick: () => void;
+    children: React.ReactNode;
+  };
+
+  function ModalActionButton({
+    index,
+    onClick,
+    children,
+  }: ModalActionButtonProps) {
+    return (
+      <Button
+        type="button"
+        variant="secondary"
+        className="shrink-0 shadow-2xs"
+        custom={index}
+        initial="hidden"
+        animate="visible"
+        variants={buttonEasingVariants}
+        {...buttonHoverTap}
+        onClick={onClick}
+      >
+        {children}
+      </Button>
+    );
+  }
+
+  type TarifaSelectProps = {
+    rates: TarifaOption[];
+    value: string;
+    onChange: (value: string) => void;
+    loading: boolean;
+    error: boolean;
+  };
+
+  function TarifaSelect({
+    rates,
+    value,
+    onChange,
+    loading,
+    error,
+  }: TarifaSelectProps) {
+    const placeholder = loading
+      ? 'Cargando tarifas…'
+      : error
+        ? 'Tarifas no disponibles'
+        : 'Elige una tarifa (opcional)…';
+
+    const tarifaOptions: DropdownOption[] = useMemo(
+      () =>
+        rates.map((opt) => ({
+          value: opt.value,
+          label:
+            opt.price > 0
+              ? `${opt.label} (${formatCurrency(opt.price)})`
+              : opt.label,
+        })),
+      [rates]
+    );
+
+    return (
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor="tarifa-header-select"
+          className="text-ink-muted text-[11px] leading-tight font-medium"
+        >
+          Puedes elegir la tarifa para esta habitación:
+        </label>
+        <RecursosDropdown
+          id="tarifa-header-select"
+          label=""
+          options={tarifaOptions}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          disabled={loading}
+          error={error ? 'Tarifas no disponibles' : undefined}
+          emptyLabel="Todavía no hay tarifas registradas."
+        />
+      </div>
+    );
+  }
+
+  type RegistroHeaderProps = {
+    rates: TarifaOption[];
+    selectedTarifaId: string;
+    onTarifaChange: (value: string) => void;
+    ratesLoading: boolean;
+    ratesError: boolean;
+    onCreateTipo: () => void;
+    onCreateEdificio: () => void;
+  };
+
+  function RegistroHeader({
+    rates,
+    selectedTarifaId,
+    onTarifaChange,
+    ratesLoading,
+    ratesError,
+    onCreateTipo,
+    onCreateEdificio,
+  }: RegistroHeaderProps) {
+    return (
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <h2 className="text-ink text-lg font-bold">Registrar habitación</h2>
+
+        <motion.div
+          custom={2}
+          initial="hidden"
+          animate="visible"
+          variants={buttonEasingVariants}
+          className="flex flex-col gap-3 sm:min-w-[220px]"
+        >
+          <div className="flex flex-wrap gap-3">
+            <ModalActionButton index={0} onClick={onCreateTipo}>
+              Crear tipo de habitación
+            </ModalActionButton>
+            <ModalActionButton index={1} onClick={onCreateEdificio}>
+              Crear edificio
+            </ModalActionButton>
+          </div>
+
+          <TarifaSelect
+            rates={rates}
+            value={selectedTarifaId}
+            onChange={onTarifaChange}
+            loading={ratesLoading}
+            error={ratesError}
+          />
+        </motion.div>
+      </header>
+    );
+  }
+
+  type LoadErrorsProps = {
+    roomTypes: { error?: string | null; loading: boolean; retry: () => void };
+    edificios: { error?: string | null; loading: boolean; retry: () => void };
+    rates: { error?: string | null; loading: boolean; retry: () => void };
+  };
+
+  function LoadErrors({ roomTypes, edificios, rates }: LoadErrorsProps) {
+    const items = [roomTypes, edificios, rates].filter((i) => i.error);
+    if (items.length === 0) return null;
+
+    return (
+      <div className="mt-4 flex flex-col gap-2">
+        {items.map((item) => (
+          <LoadBanner
+            key={item.error}
+            message={item.error!}
+            loading={item.loading}
+            onRetry={item.retry}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  3. Lógica derivada: sácala del JSX                                  */
+  /* ------------------------------------------------------------------ */
+
+  function getSubmittingLabel(numero: string | null, hasTarifa: boolean) {
+    if (!numero) return 'Registrando…';
+    return hasTarifa
+      ? `Registrando habitación ${numero} y vinculando tarifa…`
+      : `Registrando la habitación ${numero}…`;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  4. Dentro de tu componente: calcula una sola vez lo que se repite   */
+  /* ------------------------------------------------------------------ */
+
+  const selectedTarifa = useMemo(
+    () => rates.find((r) => r.value === selectedTarifaId) ?? null,
+    [rates, selectedTarifaId]
+  );
+
+  /* ------------------------------------------------------------------ */
+  /*  5. El return queda como un "índice" legible de la pantalla          */
+  /* ------------------------------------------------------------------ */
+
   return (
     <>
       <motion.section
@@ -320,159 +520,40 @@ export function HabitacionDetallePanel() {
           {successNumero ? (
             <SuccessState
               numero={successNumero}
-              tarifaNombre={
-                rates.find((r) => r.value === selectedTarifaId)?.label
-              }
+              tarifaNombre={selectedTarifa?.label}
               tarifaFeedback={tarifaFeedback}
               successMessage={successValidationMessage}
               onReset={resetForm}
             />
           ) : (
             <>
-              <div className="flex max-w-96 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h2 className="text-ink text-lg font-bold">
-                    Registrar habitación
-                  </h2>
-                  <p className="text-ink-muted mt-1 text-sm">
-                    Ubica tu nueva habitación: número, piso y a qué edificio
-                    pertenece. En un paso queda lista dentro de tu inventario.
-                  </p>
-                </div>
-                <div className="flex flex-row gap-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="shrink-0 shadow-2xs"
-                    custom={0}
-                    initial="hidden"
-                    animate="visible"
-                    variants={buttonEasingVariants}
-                    whileHover={{
-                      scale: 1.04,
-                      y: -2,
-                      transition: { duration: 0.22, ease: customEasing },
-                    }}
-                    whileTap={{
-                      scale: 0.96,
-                      y: 0,
-                      transition: { duration: 0.12, ease: customEasing },
-                    }}
-                    onClick={() => setTipoModalOpen(true)}
-                  >
-                    Crear tipo de habitación
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="shrink-0 shadow-2xs"
-                    custom={1}
-                    initial="hidden"
-                    animate="visible"
-                    variants={buttonEasingVariants}
-                    whileHover={{
-                      scale: 1.04,
-                      y: -2,
-                      transition: { duration: 0.22, ease: customEasing },
-                    }}
-                    whileTap={{
-                      scale: 0.96,
-                      y: 0,
-                      transition: { duration: 0.12, ease: customEasing },
-                    }}
-                    onClick={() => setEdificioModalOpen(true)}
-                  >
-                    Crear edificio
-                  </Button>
-                </div>
-                <div className="mt-5 flex flex-wrap items-start gap-2.5 pt-5">
-                  {/* Dropdown Tarifa al lado derecho de Crear edificio */}
-                  <motion.div
-                    custom={2}
-                    initial="hidden"
-                    animate="visible"
-                    variants={buttonEasingVariants}
-                    className="flex flex-col items-start gap-1 sm:min-w-[220px]"
-                  >
-                    {/* Nota explicativa amigable (tipo pie de página/caption) arriba del dropdown */}
-                    <div className="flex flex-col items-center gap-1.5 px-0.5">
-                      <label
-                        htmlFor="tarifa-header-select"
-                        className="text-ink-muted text-[11px] leading-tight font-medium"
-                      >
-                        Puedes elegir la tarifa para esta habitación:
-                      </label>
-                    </div>
+              <RegistroHeader
+                rates={rates}
+                selectedTarifaId={selectedTarifaId}
+                onTarifaChange={setSelectedTarifaId}
+                ratesLoading={ratesLoading}
+                ratesError={Boolean(ratesError)}
+                onCreateTipo={() => setTipoModalOpen(true)}
+                onCreateEdificio={() => setEdificioModalOpen(true)}
+              />
 
-                    <div className="relative">
-                      <select
-                        id="tarifa-header-select"
-                        value={selectedTarifaId}
-                        onChange={(e) => setSelectedTarifaId(e.target.value)}
-                        disabled={ratesLoading}
-                        className={cn(
-                          'bg-panel text-ink focus:border-primary w-full cursor-pointer appearance-none rounded-xl border px-3.5 py-2 pr-9 text-xs font-medium shadow-2xs transition outline-none focus:ring-2',
-                          ratesError
-                            ? 'border-danger/60 focus:border-danger focus:ring-danger/25'
-                            : 'border-line focus:ring-primary/30',
-                          'disabled:cursor-not-allowed disabled:opacity-50'
-                        )}
-                        aria-label="Seleccionar tarifa para la habitación"
-                      >
-                        <option value="">
-                          {ratesLoading
-                            ? 'Cargando tarifas…'
-                            : ratesError
-                              ? 'Tarifas no disponibles'
-                              : 'Elige una tarifa (opcional)…'}
-                        </option>
-                        {rates.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}{' '}
-                            {opt.price > 0
-                              ? `(${formatCurrency(opt.price)})`
-                              : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="text-ink-muted pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2"
-                        aria-hidden="true"
-                      >
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
-                    </div>
-                  </motion.div>
-                </div>
-              </div>
-
-              {roomTypesError && (
-                <LoadBanner
-                  message={roomTypesError}
-                  loading={roomTypesLoading}
-                  onRetry={() => void fetchRoomTypes()}
-                />
-              )}
-              {edificiosError && (
-                <LoadBanner
-                  message={edificiosError}
-                  loading={edificiosLoading}
-                  onRetry={() => void fetchEdificios()}
-                />
-              )}
-              {ratesError && (
-                <LoadBanner
-                  message={ratesError}
-                  loading={ratesLoading}
-                  onRetry={() => void fetchRates()}
-                />
-              )}
+              <LoadErrors
+                roomTypes={{
+                  error: roomTypesError,
+                  loading: roomTypesLoading,
+                  retry: () => void fetchRoomTypes(),
+                }}
+                edificios={{
+                  error: edificiosError,
+                  loading: edificiosLoading,
+                  retry: () => void fetchEdificios(),
+                }}
+                rates={{
+                  error: ratesError,
+                  loading: ratesLoading,
+                  retry: () => void fetchRates(),
+                }}
+              />
 
               <div className="mt-5">
                 <HabitacionDetalleForm
@@ -483,9 +564,7 @@ export function HabitacionDetallePanel() {
                   submitting={submitting}
                   submitError={submitError}
                   onSubmit={handleSubmit}
-                  selectedTarifa={
-                    rates.find((r) => r.value === selectedTarifaId) ?? null
-                  }
+                  selectedTarifa={selectedTarifa}
                   repository={habitacionDetalleRepository}
                 />
               </div>
@@ -498,13 +577,7 @@ export function HabitacionDetallePanel() {
         overlay
         visible={submitting}
         size={40}
-        label={
-          submittingNumero
-            ? selectedTarifaId
-              ? `Registrando habitación ${submittingNumero} y vinculando tarifa…`
-              : `Registrando la habitación ${submittingNumero}…`
-            : 'Registrando…'
-        }
+        label={getSubmittingLabel(submittingNumero, Boolean(selectedTarifaId))}
       >
         <span className="text-ink-soft max-w-xs text-center text-xs leading-relaxed">
           Un momento: le estamos preparando su lugar dentro de tu hotel.

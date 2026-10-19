@@ -32,11 +32,11 @@ func (uc *NextNumberUseCase) NextNumber(ctx context.Context) (string, error) {
 	return nextConsecutiveNumber(rooms), nil
 }
 
-// nextConsecutiveNumber returns "<base>-<n+1>", where base is the highest
-// room-number base in the inventory and n is the highest "-suffix" already
-// used for that base. A plain number ("101") has suffix 0, so the first call
-// over a lone "101" yields "101-1", then "101-2", and so on. Numbers that
-// carry no numeric base are ignored; an empty inventory starts at "1-1".
+// nextConsecutiveNumber returns "<base+1>-<suffix+1>": the initial room number
+// is bumped by one and the "-<consecutive>" companion is bumped alongside it.
+// A plain number ("101") has suffix 0, so a lone "101" yields "102-1"; a prior
+// "102-1" then yields "103-2". Numbers with no numeric base are ignored; an
+// empty inventory starts at "1-1".
 func nextConsecutiveNumber(rooms []domain.Room) string {
 	found := false
 	maxBase := 0
@@ -60,7 +60,7 @@ func nextConsecutiveNumber(rooms []domain.Room) string {
 	if !found {
 		return "1-1"
 	}
-	return fmt.Sprintf("%d-%d", maxBase, maxSuffix+1)
+	return fmt.Sprintf("%d-%d", maxBase+1, maxSuffix+1)
 }
 
 // parseRoomNumber splits a room number into its numeric base and optional

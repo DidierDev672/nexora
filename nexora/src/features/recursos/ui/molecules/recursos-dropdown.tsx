@@ -57,6 +57,8 @@ export interface RecursosDropdownProps {
   className?: string
   /** Mensaje de aviso cuando no hay opciones disponibles */
   emptyLabel?: string
+  /** Identificador opcional para el elemento de formulario */
+  id?: string
 }
 
 export function RecursosDropdown({
@@ -75,9 +77,11 @@ export function RecursosDropdown({
   required = false,
   className,
   emptyLabel: customEmptyLabel,
+  id,
 }: RecursosDropdownProps) {
   const isComponentDisabled = isDisabled ?? disabled
   const autoId = useId()
+  const fieldId = id ?? autoId
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [internalOptions, setInternalOptions] = useState<ReadonlyArray<DropdownOption>>([])
   const [loading, setLoading] = useState(externalOptions == null)
@@ -395,6 +399,7 @@ export function RecursosDropdown({
   // MODO SELECCIÓN SIMPLE (Dropdown estándar)
   return (
     <SelectField
+      id={fieldId}
       label={fieldLabel}
       placeholder={
         placeholder ?? (loading ? 'Cargando opciones…' : `Elegir ${fieldLabel.toLowerCase()}…`)
