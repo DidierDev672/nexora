@@ -17,6 +17,8 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Elemento interactivo opcional al final del input (ej. botón para mostrar/ocultar). */
   action?: ReactNode
   required?: boolean
+  /** Estado deshabilitado del campo (alias de `disabled`). */
+  isDisabled?: boolean
 }
 
 export function Input({
@@ -27,10 +29,13 @@ export function Input({
   iconPosition = 'left',
   action,
   required,
+  isDisabled,
+  disabled,
   className,
   id,
   ...props
 }: InputProps) {
+  const isInputDisabled = isDisabled ?? disabled
   const autoId = useId()
   const fieldId = id ?? autoId
   const errorId = `${fieldId}-error`
@@ -64,6 +69,7 @@ export function Input({
 
         <input
           id={fieldId}
+          disabled={isInputDisabled}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={cn(

@@ -49,6 +49,7 @@ import (
 	"nexora-api-rest/handler"
 	"nexora-api-rest/internal/itemmenu"
 	"nexora-api-rest/internal/menucategory"
+	"nexora-api-rest/internal/serviceassignment"
 	"nexora-api-rest/internal/servicerequest"
 	"nexora-api-rest/usecase"
 )
@@ -56,8 +57,8 @@ import (
 // NewRouter wires the whole onion and exposes the /roles, /palette,
 // /headquarters, /sub-headquarters, /users, /permission-assignment, /login,
 // /room-types, /rooms, /building, /reserve, /stays, /rates, /room_tariffs,
-// /menu-category, /item-menu and /service-request vertical slices.
-func NewRouter(roleRepo domain.RoleRepository, headquarterRepo domain.HeadquarterRepository, subHeadquarterRepo domain.SubHeadquarterRepository, paletteRepo domain.PaletteRepository, userRepo domain.UserRepository, permissionAssignmentRepo domain.PermissionAssignmentRepository, roomTypeRepo domain.RoomTypeRepository, roomRepo domain.RoomRepository, buildingRepo domain.BuildingRepository, bedTypeRepo domain.BedTypeRepository, bedRepo domain.BedRepository, personRepo domain.PersonRepository, reserveRepo domain.ReserveRepository, stayRepo domain.StayRepository, rateRepo domain.RateRepository, roomTariffRepo domain.RoomTariffRepository, auditRepo domain.AuditRepository, moduleRepo externaldomain.ModuleRepository, resourceRepo externaldomain.ResourceRepository, permissionResourceRepo externaldomain.PermissionResourceRepository, menuCategoryRepo menucategory.Repository, itemMenuRepo itemmenu.Repository, serviceRequestRepo servicerequest.Repository, jwtSecret string) http.Handler {
+// /menu-category, /item-menu, /service-request and /service-assignments vertical slices.
+func NewRouter(roleRepo domain.RoleRepository, headquarterRepo domain.HeadquarterRepository, subHeadquarterRepo domain.SubHeadquarterRepository, paletteRepo domain.PaletteRepository, userRepo domain.UserRepository, permissionAssignmentRepo domain.PermissionAssignmentRepository, roomTypeRepo domain.RoomTypeRepository, roomRepo domain.RoomRepository, buildingRepo domain.BuildingRepository, bedTypeRepo domain.BedTypeRepository, bedRepo domain.BedRepository, personRepo domain.PersonRepository, reserveRepo domain.ReserveRepository, stayRepo domain.StayRepository, rateRepo domain.RateRepository, roomTariffRepo domain.RoomTariffRepository, auditRepo domain.AuditRepository, moduleRepo externaldomain.ModuleRepository, resourceRepo externaldomain.ResourceRepository, permissionResourceRepo externaldomain.PermissionResourceRepository, menuCategoryRepo menucategory.Repository, itemMenuRepo itemmenu.Repository, serviceRequestRepo servicerequest.Repository, serviceAssignmentRepo serviceassignment.Repository, jwtSecret string) http.Handler {
 	roleHandler := &rolehttp.Handler{
 		Creator: roleapp.NewCreateRoleUseCase(roleRepo, ids.RandomID{}),
 		Lister:  roleapp.NewListRolesUseCase(roleRepo),
@@ -125,11 +126,12 @@ func NewRouter(roleRepo domain.RoleRepository, headquarterRepo domain.Headquarte
 	}
 
 	roomHandler := &roomhttp.Handler{
-		Creator: roomapp.NewCreateRoomUseCase(roomRepo, ids.RandomID{}),
-		Lister:  roomapp.NewListRoomsUseCase(roomRepo),
-		Getter:  roomapp.NewGetRoomUseCase(roomRepo),
-		Updater: roomapp.NewUpdateRoomUseCase(roomRepo),
-		Deleter: roomapp.NewDeleteRoomUseCase(roomRepo),
+		Creator:          roomapp.NewCreateRoomUseCase(roomRepo, ids.RandomID{}),
+		Lister:           roomapp.NewListRoomsUseCase(roomRepo),
+		Getter:           roomapp.NewGetRoomUseCase(roomRepo),
+		Updater:          roomapp.NewUpdateRoomUseCase(roomRepo),
+		Deleter:          roomapp.NewDeleteRoomUseCase(roomRepo),
+		NextNumberGetter: roomapp.NewNextNumberUseCase(roomRepo),
 	}
 
 	buildingHandler := &buildinghttp.Handler{
@@ -214,6 +216,7 @@ func NewRouter(roleRepo domain.RoleRepository, headquarterRepo domain.Headquarte
 	menuCategoryHTTP := menucategory.NewHandler(menucategory.NewUseCase(menuCategoryRepo, nil, nil))
 	itemMenuHTTP := itemmenu.NewHandler(itemmenu.NewUseCase(itemMenuRepo, nil, nil))
 	serviceRequestHTTP := servicerequest.NewHandler(servicerequest.NewUseCase(serviceRequestRepo, nil, nil))
+	serviceAssignmentHTTP := serviceassignment.NewHandler(serviceassignment.NewUseCase(serviceAssignmentRepo, nil, nil))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /login", authHandler.Login)
@@ -262,6 +265,7 @@ func NewRouter(roleRepo domain.RoleRepository, headquarterRepo domain.Headquarte
 
 	mux.HandleFunc("POST /room", roomHandler.Create)
 	mux.HandleFunc("GET /room", roomHandler.List)
+	mux.HandleFunc("GET /room/next-number", roomHandler.NextNumber)
 	mux.HandleFunc("GET /room/{id}", roomHandler.Get)
 	mux.HandleFunc("GET /room/{id}/reception", roomHandler.Reception)
 	mux.HandleFunc("PUT /room/{id}", roomHandler.Update)
@@ -381,6 +385,8 @@ func NewRouter(roleRepo domain.RoleRepository, headquarterRepo domain.Headquarte
 	menuCategoryHTTP.Register(mux)
 	itemMenuHTTP.Register(mux)
 	serviceRequestHTTP.Register(mux)
+	// Service Assignments: registra POST, GET, PUT, DELETE para /service-assignments y /service-assignment
+	serviceAssignmentHTTP.Register(mux)
 
 	return corsMiddleware(rateLimitMiddleware(mux))
 }

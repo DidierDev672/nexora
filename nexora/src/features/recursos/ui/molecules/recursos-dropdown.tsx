@@ -55,6 +55,8 @@ export interface RecursosDropdownProps {
   required?: boolean
   /** Clases CSS adicionales */
   className?: string
+  /** Mensaje de aviso cuando no hay opciones disponibles */
+  emptyLabel?: string
 }
 
 export function RecursosDropdown({
@@ -72,6 +74,7 @@ export function RecursosDropdown({
   isDisabled,
   required = false,
   className,
+  emptyLabel: customEmptyLabel,
 }: RecursosDropdownProps) {
   const isComponentDisabled = isDisabled ?? disabled
   const autoId = useId()
@@ -403,7 +406,7 @@ export function RecursosDropdown({
       disabled={isComponentDisabled || loading}
       required={required}
       className={className}
-      emptyLabel={loading ? undefined : 'Todavía no hay opciones disponibles.'}
+      emptyLabel={loading ? undefined : (customEmptyLabel ?? 'Todavía no hay opciones disponibles.')}
     />
   )
 }

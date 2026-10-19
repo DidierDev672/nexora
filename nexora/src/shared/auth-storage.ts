@@ -65,17 +65,19 @@ export function readAuthUserEmail(): string {
 
 export function readAuthTokenEmail(): string {
   try {
-    // 1. Clave directa requerida: 'auth_token'
-    const rawAuthToken = window.localStorage.getItem('auth_token')
-    if (rawAuthToken) {
-      try {
-        const parsed = JSON.parse(rawAuthToken) as unknown
-        const email = readEmailFrom(parsed)
-        if (email) return email
-      } catch {
-        // En caso de que sea un token JWT almacenado como cadena plana
-        const email = readEmailFrom(decodeJwtPayload(rawAuthToken))
-        if (email) return email
+    // 1. Claves directas requeridas: 'auteh_token' y 'auth_token'
+    for (const key of ['auteh_token', 'auth_token']) {
+      const rawAuthToken = window.localStorage.getItem(key)
+      if (rawAuthToken) {
+        try {
+          const parsed = JSON.parse(rawAuthToken) as unknown
+          const email = readEmailFrom(parsed)
+          if (email) return email
+        } catch {
+          // En caso de que sea un token JWT almacenado como cadena plana
+          const email = readEmailFrom(decodeJwtPayload(rawAuthToken))
+          if (email) return email
+        }
       }
     }
 
@@ -99,7 +101,7 @@ export function readAuthTokenEmail(): string {
   } catch {
     // localStorage no accesible
   }
-  return 'admin'
+  return 'ariasdev672@gmail.com'
 }
 
 /**
@@ -439,7 +441,7 @@ export function getRawJwtToken(): string | null {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return null
 
-    const candidateKeys = ['auth_token', 'nexora.auth.token', 'token', 'access_token', 'jwt']
+    const candidateKeys = ['auteh_token', 'auth_token', 'nexora.auth.token', 'token', 'access_token', 'jwt']
 
     for (const key of candidateKeys) {
       const raw = window.localStorage.getItem(key)

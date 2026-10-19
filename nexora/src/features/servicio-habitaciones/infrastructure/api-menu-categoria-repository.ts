@@ -74,6 +74,7 @@ export interface ObtenerMenuCategoriasRespuesta {
 export async function obtenerMenuCategoriasApi(): Promise<ObtenerMenuCategoriasRespuesta> {
   try {
     const response = await api.get('/menu-category', {
+      skipAuth: true,
       validateStatus: () => true,
     })
 
@@ -126,11 +127,11 @@ export async function obtenerMenuCategoriasApi(): Promise<ObtenerMenuCategoriasR
       }
     }
 
-    // Si el servidor devolvió éxito pero sin elementos o estructura vacía
+    // Si el servidor devolvió éxito pero sin elementos o array vacío ([]), se respeta la respuesta del servidor
     return {
-      categorias: FALLBACK_MENU_CATEGORIAS,
+      categorias: [],
       validation,
-      usandoFallback: true,
+      usandoFallback: false,
     }
   } catch (error) {
     let status = 500
@@ -143,9 +144,9 @@ export async function obtenerMenuCategoriasApi(): Promise<ObtenerMenuCategoriasR
     const validation = validateStatusCode(status)
 
     return {
-      categorias: FALLBACK_MENU_CATEGORIAS,
+      categorias: [],
       validation,
-      usandoFallback: true,
+      usandoFallback: false,
     }
   }
 }

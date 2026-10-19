@@ -8,12 +8,16 @@ import {
   fadeUp,
 } from '../../../../design-tokens/motion';
 import { api } from '../../../../lib/api';
+import { validateStatusCode } from '../../../../shared/lib/status-code-validator';
 import { readAuthTokenEmail } from '../../../../shared/auth-storage';
 import { AsignarTarifaHabitacion } from '../../application/asignar-tarifa-habitacion';
 import { RegistrarHabitacionDetalle } from '../../application/registrar-habitacion-detalle';
 import type { HabitacionDetalleInput } from '../../domain/habitacion-detalle';
 import { HabitacionApiError } from '../../domain/habitacion-error';
-import type { RoomTariffFeedback, RoomTariffPayload } from '../../domain/room-tariff';
+import type {
+  RoomTariffFeedback,
+  RoomTariffPayload,
+} from '../../domain/room-tariff';
 import { ApiHabitacionDetalleRepository } from '../../infrastructure/api-habitacion-detalle-repository';
 import { ApiRoomTariffRepository } from '../../infrastructure/api-room-tariff-repository';
 import { Button } from '../atoms/button';
@@ -23,6 +27,7 @@ import { cn } from '../lib/cn';
 import {
   HabitacionDetalleForm,
   type Option,
+  type EdificioOption,
   type TarifaOption,
 } from '../molecules/habitacion-detalle-form';
 import { TarifaFeedbackBanner } from '../molecules/tarifa-feedback-banner';
@@ -37,6 +42,34 @@ function mapIdNameOptions(items: unknown[]): Option[] {
     .map((raw) => raw as { id?: unknown; name?: unknown })
     .filter((item) => item.id != null && typeof item.name === 'string')
     .map((item) => ({ value: String(item.id), label: String(item.name) }));
+}
+
+function mapEdificioOptions(items: unknown[]): EdificioOption[] {
+  return items
+    .map((raw) => {
+      const item = raw as {
+        id?: unknown;
+        name?: unknown;
+        floor_number?: unknown;
+        floorNumber?: unknown;
+      };
+      const floorRaw = item.floor_number ?? item.floorNumber;
+      const parsedFloor =
+        typeof floorRaw === 'number'
+          ? floorRaw
+          : typeof floorRaw === 'string'
+            ? parseInt(floorRaw, 10)
+            : undefined;
+      return {
+        value: String(item.id ?? ''),
+        label: String(item.name ?? ''),
+        floorNumber:
+          parsedFloor && !isNaN(parsedFloor) && parsedFloor > 0
+            ? parsedFloor
+            : undefined,
+      };
+    })
+    .filter((item) => item.value.length > 0 && item.label.length > 0);
 }
 
 function formatCurrency(amount: number): string {
@@ -57,7 +90,15 @@ function parseRatesOptions(data: unknown): TarifaOption[] {
       : [];
 
   return items
-    .map((raw) => raw as { id?: unknown; name?: unknown; price?: unknown; modality?: unknown })
+    .map(
+      (raw) =>
+        raw as {
+          id?: unknown;
+          name?: unknown;
+          price?: unknown;
+          modality?: unknown;
+        }
+    )
     .filter(
       (item) =>
         item && typeof item.name === 'string' && item.name.trim().length > 0
@@ -83,18 +124,22 @@ export function HabitacionDetallePanel() {
   const [roomTypes, setRoomTypes] = useState<Option[]>([]);
   const [roomTypesLoading, setRoomTypesLoading] = useState(true);
   const [roomTypesError, setRoomTypesError] = useState<string | null>(null);
-  const [edificios, setEdificios] = useState<Option[]>([]);
+  const [edificios, setEdificios] = useState<EdificioOption[]>([]);
   const [edificiosLoading, setEdificiosLoading] = useState(true);
   const [edificiosError, setEdificiosError] = useState<string | null>(null);
   const [rates, setRates] = useState<TarifaOption[]>([]);
   const [ratesLoading, setRatesLoading] = useState(true);
   const [ratesError, setRatesError] = useState<string | null>(null);
   const [selectedTarifaId, setSelectedTarifaId] = useState('');
-  const [tarifaFeedback, setTarifaFeedback] = useState<RoomTariffFeedback | null>(null);
+  const [tarifaFeedback, setTarifaFeedback] =
+    useState<RoomTariffFeedback | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittingNumero, setSubmittingNumero] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successNumero, setSuccessNumero] = useState<string | null>(null);
+  const [successValidationMessage, setSuccessValidationMessage] = useState<
+    string | null
+  >(null);
   const [tipoModalOpen, setTipoModalOpen] = useState(false);
   const [edificioModalOpen, setEdificioModalOpen] = useState(false);
   const submittingRef = useRef(false);
@@ -127,9 +172,15 @@ export function HabitacionDetallePanel() {
     try {
       const response = await api.get<unknown>('/building');
       if (response.status === 200) {
-        setEdificios(
-          Array.isArray(response.data) ? mapIdNameOptions(response.data) : []
-        );
+        const rawData = Array.isArray(response.data)
+          ? response.data
+          : response.data &&
+              typeof response.data === 'object' &&
+              'data' in response.data &&
+              Array.isArray((response.data as { data: unknown[] }).data)
+            ? (response.data as { data: unknown[] }).data
+            : [];
+        setEdificios(mapEdificioOptions(rawData));
       }
     } catch (error) {
       const status = isAxiosError(error) ? error.response?.status : undefined;
@@ -185,12 +236,19 @@ export function HabitacionDetallePanel() {
     setSubmitError(null);
     setTarifaFeedback(null);
     try {
-      const result = await RegistrarHabitacionDetalle(habitacionDetalleRepository)(values);
+      const result = await RegistrarHabitacionDetalle(
+        habitacionDetalleRepository
+      )(values);
       setSuccessNumero(values.numero.trim());
+      if (result?.validation?.message) {
+        setSuccessValidationMessage(result.validation.message);
+      }
 
       // Si el usuario seleccionó una tarifa, en segundo plano construimos el payload y lo enviamos a /room_tariff:
       if (selectedTarifaId) {
-        const tarifaSeleccionada = rates.find((r) => r.value === selectedTarifaId);
+        const tarifaSeleccionada = rates.find(
+          (r) => r.value === selectedTarifaId
+        );
         const roomId = result?.roomId;
         const createdByEmail = readAuthTokenEmail();
 
@@ -222,8 +280,18 @@ export function HabitacionDetallePanel() {
         }
       }
     } catch (error) {
-      const status = error instanceof HabitacionApiError ? error.status : 0;
-      setSubmitError(roomTypeErrorCopy(status));
+      if (error instanceof HabitacionApiError && error.friendlyMessage) {
+        setSubmitError(error.friendlyMessage);
+      } else {
+        const status =
+          error instanceof HabitacionApiError
+            ? error.status
+            : isAxiosError(error)
+              ? (error.response?.status ?? 0)
+              : 0;
+        const validation = validateStatusCode(status);
+        setSubmitError(validation.message ?? roomTypeErrorCopy(status));
+      }
     } finally {
       setSubmitting(false);
       setSubmittingNumero('');
@@ -233,6 +301,7 @@ export function HabitacionDetallePanel() {
 
   const resetForm = () => {
     setSuccessNumero(null);
+    setSuccessValidationMessage(null);
     setSubmitError(null);
     setSelectedTarifaId('');
     setTarifaFeedback(null);
@@ -255,11 +324,12 @@ export function HabitacionDetallePanel() {
                 rates.find((r) => r.value === selectedTarifaId)?.label
               }
               tarifaFeedback={tarifaFeedback}
+              successMessage={successValidationMessage}
               onReset={resetForm}
             />
           ) : (
             <>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex max-w-96 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <h2 className="text-ink text-lg font-bold">
                     Registrar habitación
@@ -358,7 +428,10 @@ export function HabitacionDetallePanel() {
                         </option>
                         {rates.map((opt) => (
                           <option key={opt.value} value={opt.value}>
-                            {opt.label} {opt.price > 0 ? `(${formatCurrency(opt.price)})` : ''}
+                            {opt.label}{' '}
+                            {opt.price > 0
+                              ? `(${formatCurrency(opt.price)})`
+                              : ''}
                           </option>
                         ))}
                       </select>
@@ -410,7 +483,10 @@ export function HabitacionDetallePanel() {
                   submitting={submitting}
                   submitError={submitError}
                   onSubmit={handleSubmit}
-                  selectedTarifa={rates.find((r) => r.value === selectedTarifaId) ?? null}
+                  selectedTarifa={
+                    rates.find((r) => r.value === selectedTarifaId) ?? null
+                  }
+                  repository={habitacionDetalleRepository}
                 />
               </div>
             </>
@@ -444,6 +520,7 @@ export function HabitacionDetallePanel() {
       <EdificioRegistroModal
         open={edificioModalOpen}
         onClose={() => setEdificioModalOpen(false)}
+        onSuccess={() => void fetchEdificios()}
       />
     </>
   );
@@ -485,11 +562,13 @@ function SuccessState({
   numero,
   tarifaNombre,
   tarifaFeedback,
+  successMessage,
   onReset,
 }: {
   numero: string;
   tarifaNombre?: string;
   tarifaFeedback?: RoomTariffFeedback | null;
+  successMessage?: string | null;
   onReset: () => void;
 }) {
   return (
@@ -519,6 +598,11 @@ function SuccessState({
           <h3 className="text-ink text-xl font-bold">
             ¡La habitación {numero} ya tiene casa!
           </h3>
+          {successMessage && (
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              {successMessage}
+            </p>
+          )}
           <p className="text-ink-muted text-sm leading-relaxed">
             Quedó registrada con su piso, su edificio, su tipo
             {tarifaNombre ? `, su tarifa «${tarifaNombre}»` : ''} y su estado. A
@@ -531,9 +615,7 @@ function SuccessState({
       </motion.div>
 
       <AnimatePresence mode="wait">
-        {tarifaFeedback && (
-          <TarifaFeedbackBanner feedback={tarifaFeedback} />
-        )}
+        {tarifaFeedback && <TarifaFeedbackBanner feedback={tarifaFeedback} />}
       </AnimatePresence>
     </div>
   );

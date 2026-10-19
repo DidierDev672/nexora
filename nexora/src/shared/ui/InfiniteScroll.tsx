@@ -1,5 +1,11 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { cn } from '../lib/cn'
+import {
+  LazyAnimatedWrapper,
+  type LazyAnimationVariant,
+} from './LazyAnimatedWrapper'
+
+export type { LazyAnimationVariant }
 
 export interface InfiniteScrollProps {
   onLoadMore: () => Promise<void> | void
@@ -13,6 +19,15 @@ export interface InfiniteScrollProps {
   /** Margin extra del root antes de cruzar el umbral (px). Por defecto 200. */
   rootMargin?: string
   className?: string
+  /**
+   * Variante opcional de animación perezosa al hacer scroll (LazyAnimationVariant: 'fade' | 'slideUp' | 'slideDown' | 'slideLeft' | 'slideRight' | 'zoomIn').
+   * Si se define, activa la animación mediante `whileInView` de Motion.
+   */
+  animationVariant?: LazyAnimationVariant
+  /** Margen de activación en el viewport para la animación perezosa. Por defecto '-100px'. */
+  viewportMargin?: string
+  /** Si la animación debe ejecutarse solo una vez al entrar en el viewport. Por defecto true. */
+  once?: boolean
 }
 
 export function InfiniteScroll({
@@ -25,6 +40,9 @@ export function InfiniteScroll({
   threshold = 0,
   rootMargin = '0px 0px 200px 0px',
   className,
+  animationVariant,
+  viewportMargin = '-100px',
+  once = true,
 }: InfiniteScrollProps) {
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -61,8 +79,8 @@ export function InfiniteScroll({
     return () => observer.disconnect()
   }, [hasMore, isLoading, rootMargin, threshold])
 
-  return (
-    <div className={className}>
+  const content = (
+    <div className={!animationVariant ? className : undefined}>
       {children}
 
       {isLoading ? (
@@ -74,12 +92,82 @@ export function InfiniteScroll({
       ) : hasMore ? (
         <div ref={sentinelRef} aria-hidden="true" />
       ) : (
-        endMessage
+        endMessage && (
+          animationVariant ? (
+            <LazyAnimatedWrapper
+              variant={animationVariant}
+              once={once}
+              viewportMargin={viewportMargin}
+            >
+              {endMessage}
+            </LazyAnimatedWrapper>
+          ) : (
+            endMessage
+          )
+        )
       )}
     </div>
   )
+
+  if (animationVariant) {
+    return (
+      <LazyAnimatedWrapper
+        variant={animationVariant}
+        viewportMargin={viewportMargin}
+        once={once}
+        className={className}
+      >
+        {content}
+      </LazyAnimatedWrapper>
+    )
+  }
+
+  return content
 }
 
-export function InfiniteScrollEnd({ label = 'Llegaste al final.' }: { label?: string }) {
-  return <p className={cn('py-6 text-center text-sm text-neutral')}>{label}</p>
+export function InfiniteScrollEnd({
+  label = 'Llegaste al final.',
+  animationVariant,
+}: {
+  label?: string
+  animationVariant?: LazyAnimationVariant
+}) {
+  const node = <p className={cn('py-6 text-center text-sm text-neutral')}>{label}</p>
+  if (animationVariant) {
+    return (
+      <LazyAnimatedWrapper variant={animationVariant} once>
+        {node}
+      </LazyAnimatedWrapper>
+    )
+  }
+  return node
+}
+
+export interface InfiniteScrollAnimatedItemProps {
+  children: ReactNode
+  variant?: LazyAnimationVariant
+  className?: string
+  viewportMargin?: string
+}
+
+/**
+ * Envoltorio atómico para ítems individuales dentro de un InfiniteScroll
+ * que se animan individualmente al hacer scroll hacia abajo.
+ */
+export function InfiniteScrollAnimatedItem({
+  children,
+  variant = 'slideUp',
+  className,
+  viewportMargin = '-100px',
+}: InfiniteScrollAnimatedItemProps) {
+  return (
+    <LazyAnimatedWrapper
+      variant={variant}
+      viewportMargin={viewportMargin}
+      once
+      className={className}
+    >
+      {children}
+    </LazyAnimatedWrapper>
+  )
 }
