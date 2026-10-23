@@ -7,17 +7,24 @@ import type { Sede, SedeEstado, SedeInput, SubSede } from '../../domain/sede'
 import { isStaticSede } from '../../infrastructure/local-storage-sede-repository'
 import { Button } from '../atoms/button'
 import { EmptyState } from '../atoms/empty-state'
-import { FadeIn } from '../atoms/fade-in'
 import { Loader } from '../atoms/loader'
 import { Modal } from '../atoms/modal'
 import { SuccessModal } from '../atoms/success-modal'
 import { TextField } from '../atoms/text-field'
 import { WarningModal } from '../atoms/warning-modal'
-import { SedeForm } from '../molecules/sede-form'
 import { SedeItem } from '../molecules/sede-item'
+import { SedeForm } from '../molecules/sede-form'
+import { SedesTable } from '../molecules/sedes-table'
+import { STAGGER_CONTAINER_VARIANTS, STAGGER_ITEM_VARIANTS } from '../lib/sedes-motion'
+import { SedesViewSwitch, type SedesViewMode } from '../molecules/sedes-view-switch'
 import { SubSedeForm, type SubSedeFormValues } from '../molecules/sub-sede-form'
 import { SubSedeHistory } from '../molecules/sub-sede-history'
 import { useSedes } from '../sedes-context'
+
+export interface SedesPanelProps {
+  viewMode?: SedesViewMode
+  onViewModeChange?: (mode: SedesViewMode) => void
+}
 
 const PAGE_SIZE = 6
 
@@ -31,8 +38,19 @@ const CREATED_BY = 'u-123'
 
 const SUB_SEDE_CREATED_BY = 'user_system'
 
-export function SedesPanel() {
+export function SedesPanel({
+  viewMode: propViewMode,
+  onViewModeChange,
+}: SedesPanelProps = {}) {
   const { sedes, isLoading, loadError, reload, create, remove, removeStatic } = useSedes()
+  const [internalViewMode, setInternalViewMode] = useState<SedesViewMode>('cards')
+  const viewMode = propViewMode ?? internalViewMode
+
+  const handleViewModeChange = (mode: SedesViewMode) => {
+    setInternalViewMode(mode)
+    onViewModeChange?.(mode)
+  }
+
   const [formOpen, setFormOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
@@ -255,21 +273,24 @@ export function SedesPanel() {
             </span>
           )}
         </div>
-        <Button onClick={openCreate}>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="size-4"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="13" r="8" />
-            <path d="M12 9v8M8 13h8" />
-          </svg>
-          Nueva sede
-        </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <SedesViewSwitch viewMode={viewMode} onChange={handleViewModeChange} />
+          <Button onClick={openCreate}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className="size-4"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="13" r="8" />
+              <path d="M12 9v8M8 13h8" />
+            </svg>
+            Nueva sede
+          </Button>
+        </div>
       </div>
 
       <TextField
@@ -361,20 +382,44 @@ export function SedesPanel() {
           loader={<Loader label="Cargando más sedes…" className="py-6" />}
           endMessage={<InfiniteScrollEnd label="Ya aparecen todas tus sedes." />}
         >
-          <motion.ul layout className="space-y-3">
-            <AnimatePresence initial={false}>
-              {visibleSedes.map((sede, index) => (
-                <FadeIn key={sede.id} duration={500} delay={Math.min(index * 40, 320)}>
+          <AnimatePresence mode="wait">
+            {viewMode === 'cards' ? (
+              <motion.ul
+                key="sedes-cards-view"
+                variants={STAGGER_CONTAINER_VARIANTS}
+                initial="hidden"
+                animate="visible"
+                exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5"
+              >
+                {visibleSedes.map((sede) => (
                   <SedeItem
+                    key={sede.id}
                     sede={sede}
+                    variants={STAGGER_ITEM_VARIANTS}
                     onDelete={() => confirmDelete(sede)}
                     onAddSubSede={() => openSubSedeModal(sede)}
                     onViewSubSedes={() => openSubSedeView(sede)}
                   />
-                </FadeIn>
-              ))}
-            </AnimatePresence>
-          </motion.ul>
+                ))}
+              </motion.ul>
+            ) : (
+              <motion.div
+                key="sedes-table-view"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+                transition={{ duration: 0.2 }}
+              >
+                <SedesTable
+                  sedes={visibleSedes}
+                  onDelete={confirmDelete}
+                  onAddSubSede={openSubSedeModal}
+                  onViewSubSedes={openSubSedeView}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </InfiniteScroll>
       )}
 

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "role-admin",
+    "name": "admin",
+    "description": "Administrador del sistema"
+  },
+  {
+    "id": "role-reception",
+    "name": "reception",
+    "description": "Recepcionista"
+  },
+  {
+    "id": "role-housekeeping",
+    "name": "housekeeping",
+    "description": "Limpieza"
+  },
+  {
+    "id": "role-manager",
+    "name": "manager",
+    "description": "Gerente"
+  },
+  {
+    "id": "role-guest",
+    "name": "guest",
+    "description": "Huésped"
+  }
+]

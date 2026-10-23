@@ -50,7 +50,7 @@ export function SelectField({
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : undefined}
             className={cn(
-              'w-full cursor-pointer appearance-none rounded-lg border bg-panel px-3.5 py-2.5 pr-10 text-sm text-ink shadow-xs outline-none transition focus:border-primary focus:ring-2',
+              'w-full cursor-pointer appearance-none rounded-xl border bg-panel px-3.5 py-2.5 pr-10 text-sm text-ink shadow-xs outline-none transition focus:border-primary focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-canvas/50',
               error
                 ? 'border-danger/60 focus:border-danger focus:ring-danger/25'
                 : 'border-line focus:ring-primary/30',
