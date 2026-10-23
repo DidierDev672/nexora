@@ -68,6 +68,10 @@ export interface PersonApiResponse {
   name: string
   phone_number: string
   email: string
+  date_of_birth?: string
+  gender?: string
+  genre?: string
+  nationality?: string
 }
 
 export interface TipoCamaApiResponse {

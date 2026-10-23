@@ -6,6 +6,7 @@ import { Button } from '../atoms/button'
 import { ApiModuleRepository } from '../../infrastructure/api-module-repository'
 import { cn } from '../lib/cn'
 import { api } from '../../../../lib/api'
+import { validateStatusCode } from '../../../../shared/lib/status-code-validator'
 
 const apiModuleRepository = new ApiModuleRepository()
 
@@ -24,6 +25,8 @@ const rolesUnexpectedErrorMessage =
 export interface DropdownOption {
   value: string
   label: string
+  id?: string
+  rawName?: string
 }
 
 export interface RecursosDropdownProps {
@@ -31,6 +34,8 @@ export interface RecursosDropdownProps {
   value?: string
   /** Callback para cambio en modo simple */
   onChange?: (value: string) => void
+  /** Callback para notificar la opción completa seleccionada (con id y rawName) */
+  onSelectOption?: (option: DropdownOption) => void
   /** Mensaje de error a desplegar */
   error?: string
   /** Etiqueta superior del campo */
@@ -64,6 +69,7 @@ export interface RecursosDropdownProps {
 export function RecursosDropdown({
   value = '',
   onChange,
+  onSelectOption,
   error,
   label,
   placeholder,
@@ -83,6 +89,10 @@ export function RecursosDropdown({
   const autoId = useId()
   const fieldId = id ?? autoId
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const onSelectOptionRef = useRef(onSelectOption)
+  useEffect(() => {
+    onSelectOptionRef.current = onSelectOption
+  }, [onSelectOption])
   const [internalOptions, setInternalOptions] = useState<ReadonlyArray<DropdownOption>>([])
   const [loading, setLoading] = useState(externalOptions == null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -95,38 +105,55 @@ export function RecursosDropdown({
     setLoading(true)
 
     try {
-      // 1. Endpoint específico de roles: /roles vía GET con axios
+      // 1. Endpoint específico de roles: /roles vía GET con axios y validateStatusCode
       if (endpoint === '/roles' || endpoint?.includes('roles')) {
         const response = await api.get<{ id: string; name: string; description?: string }[]>(endpoint, {
           validateStatus: () => true,
         })
 
-        if (response.status === 200 && Array.isArray(response.data)) {
-          // Para las opciones en el dropdown utilizar el item name, para el payload vamos utilizar el id
-          const roleOptions = response.data.map((role) => ({
-            value: role.id,
-            label: role.name,
-          }))
+        const validation = validateStatusCode(response.status)
+
+        if (validation.isValid) {
+          const rawData = response.data
+          const dataList: { id: string; name: string; description?: string }[] = Array.isArray(rawData)
+            ? rawData
+            : rawData && typeof rawData === 'object' && Array.isArray((rawData as { data?: unknown[] }).data)
+              ? (rawData as { data: { id: string; name: string; description?: string }[] }).data
+              : []
+
+          // Para las opciones en el dropdown utilizar el item id como value y name como label
+          const roleOptions = dataList.map((role) => {
+            const isGuestOrHuesped =
+              role.name.trim().toLowerCase() === 'guest' ||
+              role.name.trim().toLowerCase() === 'huesped' ||
+              role.name.trim().toLowerCase() === 'huésped'
+            return {
+              value: role.id,
+              label: isGuestOrHuesped ? 'Huesped' : role.name,
+              id: role.id,
+              rawName: role.name,
+            }
+          })
           setInternalOptions(roleOptions)
 
-          // Auto-seleccionar por defecto el ID del rol de huésped manteniendo todas las opciones del endpoint
-          if (onChange) {
-            const huespedRole =
-              roleOptions.find(
-                (r) =>
-                  r.label.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 'huesped'
-              ) ||
-              roleOptions.find((r) => r.label.trim().toLowerCase().includes('huesped'))
+          // De acuerdo a las opciones del endpoint por defecto es huesped
+          const huespedRole =
+            roleOptions.find(
+              (r) =>
+                r.label.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 'huesped' ||
+                r.rawName?.trim().toLowerCase() === 'guest' ||
+                r.rawName?.trim().toLowerCase() === 'huesped'
+            ) || roleOptions[0]
 
-            if (huespedRole && (!value || value === 'huesped' || !roleOptions.some((o) => o.value === value))) {
-              onChange(huespedRole.value)
-            }
+          if (huespedRole) {
+            onSelectOptionRef.current?.(huespedRole)
+            onChange?.(huespedRole.id || huespedRole.value)
           }
         } else if (response.status === 400) {
-          // Status 400: Mensaje psicológico chulo y constructivo
-          setErrorMessage(rolesErrorMessage400)
+          // Status 400: Mensaje empático y constructivo mediante status-code-validator
+          setErrorMessage(validation.message || rolesErrorMessage400)
         } else {
-          setErrorMessage(rolesUnexpectedErrorMessage)
+          setErrorMessage(validation.message || rolesUnexpectedErrorMessage)
         }
         return
       }
@@ -136,7 +163,8 @@ export function RecursosDropdown({
         const response = await api.get<unknown[]>(endpoint, {
           validateStatus: () => true,
         })
-        if (response.status === 200 && Array.isArray(response.data)) {
+        const validation = validateStatusCode(response.status)
+        if (validation.isValid && Array.isArray(response.data)) {
           setInternalOptions(
             (response.data as Array<{ id?: string; value?: string; name?: string; label?: string }>).map((item) => ({
               value: item.id ?? item.value ?? String(item),
@@ -144,9 +172,9 @@ export function RecursosDropdown({
             }))
           )
         } else if (response.status === 400) {
-          setErrorMessage(rolesErrorMessage400)
+          setErrorMessage(validation.message || rolesErrorMessage400)
         } else {
-          setErrorMessage(unexpectedErrorMessage)
+          setErrorMessage(validation.message || unexpectedErrorMessage)
         }
         return
       }
@@ -155,10 +183,17 @@ export function RecursosDropdown({
       const resources = await apiModuleRepository.listResources()
       setInternalOptions(resources.map((resource) => ({ value: resource.id, label: resource.name })))
     } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 400) {
-        setErrorMessage(endpoint?.includes('roles') ? rolesErrorMessage400 : resourceErrorMessage)
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status ?? 0
+        const validation = validateStatusCode(status)
+        setErrorMessage(
+          validation.message || (endpoint?.includes('roles') ? rolesErrorMessage400 : resourceErrorMessage)
+        )
       } else {
-        setErrorMessage(endpoint?.includes('roles') ? rolesUnexpectedErrorMessage : unexpectedErrorMessage)
+        const validation = validateStatusCode(0)
+        setErrorMessage(
+          validation.message || (endpoint?.includes('roles') ? rolesUnexpectedErrorMessage : unexpectedErrorMessage)
+        )
       }
     } finally {
       setLoading(false)
@@ -167,6 +202,7 @@ export function RecursosDropdown({
 
   useEffect(() => {
     if (externalOptions == null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadOptions()
     }
   }, [externalOptions, loadOptions])
@@ -193,7 +229,45 @@ export function RecursosDropdown({
   }, [isOpen])
 
   // Conserva íntegras todas las opciones obtenidas del endpoint
-  const options = externalOptions ?? internalOptions
+  const rawOptions = externalOptions ?? internalOptions
+  const isRolesEndpoint = endpoint === '/roles' || endpoint?.includes('roles')
+  const defaultHuespedId = 'role-huesped'
+  const options =
+    rawOptions.length > 0
+      ? rawOptions
+      : isRolesEndpoint
+        ? [{ value: defaultHuespedId, label: 'Huesped', id: defaultHuespedId, rawName: 'guest' }]
+        : []
+
+  // Resolver el valor seleccionado tolerando coincidencias por id, por alias (Huesped <-> guest) o por defecto
+  const resolvedValue = (() => {
+    if (!value) {
+      if (isRolesEndpoint) {
+        const huespedOpt = options.find(
+          (o) =>
+            o.label.toLowerCase() === 'huesped' ||
+            (o as DropdownOption).rawName?.toLowerCase() === 'guest' ||
+            (o as DropdownOption).rawName?.toLowerCase() === 'huesped'
+        )
+        return huespedOpt ? huespedOpt.value : options[0]?.value || defaultHuespedId
+      }
+      return ''
+    }
+    const exactMatch = options.find((o) => o.value === value || (o as DropdownOption).id === value)
+    if (exactMatch) return exactMatch.value
+
+    if (value.toLowerCase() === 'huesped' || value.toLowerCase() === 'guest') {
+      const matchHuesped = options.find(
+        (o) =>
+          o.label.toLowerCase() === 'huesped' ||
+          (o as DropdownOption).rawName?.toLowerCase() === 'guest' ||
+          (o as DropdownOption).rawName?.toLowerCase() === 'huesped'
+      )
+      if (matchHuesped) return matchHuesped.value
+    }
+
+    return value
+  })()
 
   const fieldLabel = label ?? 'Recurso'
 
@@ -405,8 +479,15 @@ export function RecursosDropdown({
         placeholder ?? (loading ? 'Cargando opciones…' : `Elegir ${fieldLabel.toLowerCase()}…`)
       }
       options={options}
-      value={value}
-      onChange={(event) => onChange?.(event.target.value)}
+      value={resolvedValue}
+      onChange={(event) => {
+        const val = event.target.value
+        onChange?.(val)
+        const matched = options.find((o) => o.value === val)
+        if (matched) {
+          onSelectOption?.(matched)
+        }
+      }}
       error={error}
       disabled={isComponentDisabled || loading}
       required={required}
